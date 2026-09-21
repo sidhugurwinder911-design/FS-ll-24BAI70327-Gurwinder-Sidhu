@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REST API User Management</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(135deg, #eef5ff, #f8fbff);
+            color: #24344d;
+        }
+
+        .container {
+            width: 98%;
+            max-width: 1400px;
+            margin: 8px auto 30px;
+        }
+
+        /* Top cards */
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1.15fr 1fr;
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 18px 20px;
+            box-shadow: 0 3px 12px rgba(45, 83, 130, 0.12);
+            border: 1px solid #e4edf8;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #526783;
+            margin-bottom: 5px;
+        }
+
+        .card-value {
+            font-size: 23px;
+            font-weight: bold;
+            color: #174cb8;
+        }
+
+        /* Main panels */
+        .panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 18px;
+            box-shadow: 0 3px 12px rgba(45, 83, 130, 0.12);
+            border: 1px solid #e4edf8;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin: 0 0 16px;
+            color: #263c5b;
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #34465e;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd9ea;
+            border-radius: 7px;
+            outline: none;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        input:focus {
+            border-color: #2878e8;
+            box-shadow: 0 0 0 2px rgba(40, 120, 232, 0.1);
+        }
+
+        .buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        button {
+            border: none;
+            padding: 9px 15px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .add {
+            background: #1677ff;
+            color: white;
+        }
+
+        .update {
+            background: #7846ef;
+            color: white;
+        }
+
+        .clear {
+            background: #dfe7f1;
+            color: #40516a;
+        }
+
+        .search {
+            width: 100%;
+            background: #178c80;
+            color: white;
+            padding: 10px;
+        }
+
+        .search-result {
+            background: #edf3fa;
+            color: #6a7890;
+            padding: 11px;
+            border-radius: 7px;
+            margin-top: 9px;
+            font-size: 12px;
+        }
+
+        /* Table */
+        .table-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 18px 14px;
+            box-shadow: 0 3px 12px rgba(45, 83, 130, 0.12);
+            border: 1px solid #e4edf8;
+        }
+
+        .table-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 0 12px 0;
+        }
+
+        .refresh {
+            background: #eef1ff;
+            color: #5364d9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f0f5fb;
+            color: #4d6079;
+            text-align: left;
+            padding: 10px;
+            font-size: 12px;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #edf1f6;
+            font-size: 13px;
+        }
+
+        .uid {
+            color: #1461ca;
+            font-weight: bold;
+        }
+
+        .edit {
+            background: #ebe8ff;
+            color: #6553d8;
+            margin-right: 5px;
+        }
+
+        .delete {
+            background: #ffe0e3;
+            color: #e34d5c;
+        }
+
+        .empty {
+            text-align: center;
+            color: #8995a7;
+            padding: 20px;
+        }
+
+        @media(max-width: 750px) {
+            .stats,
+            .panels {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Statistics -->
+    <div class="stats">
+
+        <div class="card">
+            <div class="card-title">Total Users</div>
+            <div class="card-value" id="totalUsers">0</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">API Status</div>
+            <div class="card-value" id="apiStatus">Checking...</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Service</div>
+            <div class="card-value">Spring Boot</div>
+        </div>
+
+    </div>
+
+    <!-- Forms -->
+    <div class="panels">
+
+        <!-- User Details -->
+        <div class="panel">
+
+            <h2>User Details</h2>
+
+            <label>User UID</label>
+            <input
+                type="text"
+                id="uid"
+                placeholder="Enter user UID">
+
+            <label>Full Name</label>
+            <input
+                type="text"
+                id="name"
+                placeholder="Enter full name">
+
+            <div class="buttons">
+                <button class="add" onclick="addUser()">+ Add User</button>
+                <button class="update" onclick="updateUser()">Update</button>
+                <button class="clear" onclick="clearForm()">Clear</button>
+            </div>
+
+        </div>
+
+        <!-- Find User -->
+        <div class="panel">
+
+            <h2>Find a User</h2>
+
+            <label>Search using UID</label>
+
+            <input
+                type="text"
+                id="searchUid"
+                placeholder="Example: 24BAI70327">
+
+            <button class="search" onclick="searchUser()">
+                Search User
+            </button>
+
+            <div class="search-result" id="searchResult">
+                Search result will appear here.
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Registered Users -->
+    <div class="table-panel">
+
+        <div class="table-heading">
+
+            <h2 style="margin:0;">Registered Users</h2>
+
+            <button class="refresh" onclick="loadUsers()">
+                ↻ Refresh
+            </button>
+
+        </div>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>UID</th>
+                    <th>Name</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody id="userTable">
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+<script>
+
+    const API = "/api/posts";
+
+    let users = [];
+    let editingUid = null;
+
+    // Load users
+    async function loadUsers() {
+
+        try {
+
+            const response = await fetch(API);
+
+            if (!response.ok) {
+                throw new Error("API Error");
+            }
+
+            const result = await response.json();
+
+            users = result.data || [];
+
+            document.getElementById("apiStatus").textContent = "Connected";
+
+            displayUsers();
+
+        } catch (error) {
+
+            document.getElementById("apiStatus").textContent = "Disconnected";
+
+            console.error(error);
+
+        }
+    }
+
+    // Display table
+    function displayUsers() {
+
+        const table = document.getElementById("userTable");
+
+        table.innerHTML = "";
+
+        document.getElementById("totalUsers").textContent = users.length;
+
+        if (users.length === 0) {
+
+            table.innerHTML = `
+                <tr>
+                    <td colspan="4" class="empty">
+                        No registered users found.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+        users.forEach((user, index) => {
+
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td class="uid">${user.id}</td>
+                <td>${user.text}</td>
+
+                <td>
+                    <button class="edit"
+                        onclick="editUser('${user.id}', '${escapeQuotes(user.text)}')">
+                        Edit
+                    </button>
+
+                    <button class="delete"
+                        onclick="deleteUser('${user.id}')">
+                        Delete
+                    </button>
+                </td>
+            `;
+
+            table.appendChild(row);
+
+        });
+    }
+
+    function escapeQuotes(text) {
+        return text.replace(/'/g, "\\'");
+    }
+
+    // Add user
+    async function addUser() {
+
+        const uid = document.getElementById("uid").value.trim();
+        const name = document.getElementById("name").value.trim();
+
+        if (!uid || !name) {
+            alert("Please enter UID and Full Name.");
+            return;
+        }
+
+        try {
+
+            const response = await fetch(API, {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    text: name
+                })
+
+            });
+
+            if (!response.ok) {
+                throw new Error("Unable to add user");
+            }
+
+            clearForm();
+
+            await loadUsers();
+
+        } catch (error) {
+
+            alert(error.message);
+
+        }
+    }
+
+    // Edit user
+    function editUser(id, name) {
+
+        document.getElementById("uid").value = id;
+        document.getElementById("name").value = name;
+
+        editingUid = id;
+
+    }
+
+    // Update user
+    async function updateUser() {
+
+        if (!editingUid) {
+
+            alert("First click Edit on a user.");
+
+            return;
+        }
+
+        const name = document.getElementById("name").value.trim();
+
+        if (!name) {
+
+            alert("Enter full name.");
+
+            return;
+        }
+
+        try {
+
+            const response = await fetch(
+                `${API}/${editingUid}`,
+                {
+                    method: "PUT",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        text: name
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("Unable to update user");
+            }
+
+            clearForm();
+
+            await loadUsers();
+
+        } catch (error) {
+
+            alert(error.message);
+
+        }
+    }
+
+    // Delete
+    async function deleteUser(id) {
+
+        if (!confirm("Are you sure you want to delete this user?")) {
+            return;
+        }
+
+        try {
+
+            const response = await fetch(
+                `${API}/${id}`,
+                {
+                    method: "DELETE"
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("Unable to delete user");
+            }
+
+            await loadUsers();
+
+        } catch (error) {
+
+            alert(error.message);
+
+        }
+    }
+
+    // Search
+    function searchUser() {
+
+        const uid =
+            document.getElementById("searchUid")
+            .value.trim();
+
+        const result =
+            document.getElementById("searchResult");
+
+        if (!uid) {
+
+            result.textContent =
+                "Please enter a UID.";
+
+            return;
+        }
+
+        const user = users.find(
+            u => u.id.toLowerCase() === uid.toLowerCase()
+        );
+
+        if (user) {
+
+            result.innerHTML =
+                `<b>${user.id}</b> — ${user.text}`;
+
+        } else {
+
+            result.textContent =
+                "User not found.";
+
+        }
+    }
+
+    // Clear
+    function clearForm() {
+
+        document.getElementById("uid").value = "";
+        document.getElementById("name").value = "";
+
+        editingUid = null;
+
+    }
+
+    // Initial load
+    loadUsers();
+
+</script>
+
+</body>
+</html>

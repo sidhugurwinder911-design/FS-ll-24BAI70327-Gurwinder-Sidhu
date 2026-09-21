@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>User Management - Experiment 5.2</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f8fc;color:#24364f;font-family:Arial,Helvetica,sans-serif;font-size:14px}
+.page{width:100%;max-width:1200px;margin:0 auto;padding:10px 12px 18px}
+.topbar{height:26px;display:flex;align-items:center;justify-content:space-between;color:#60748d;font-size:11px;margin-bottom:7px}
+.status-dot{color:#1aa56b;font-weight:700}.status-dot::before{content:'●';margin-right:4px}
+.api-label{font-size:11px;color:#71839a}
+.card{background:#fff;border:1px solid #e1e9f1;border-radius:9px;margin-bottom:12px;padding:15px 18px;box-shadow:0 2px 8px rgba(30,70,110,.07)}
+h2{font-size:16px;margin:0 0 9px;color:#20344f}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;font-size:10px;font-weight:700;color:#60728a;margin-bottom:5px}
+input{width:100%;height:28px;border:1px solid #cfdbe7;border-radius:6px;padding:0 10px;font-size:12px;color:#2c3d52;outline:none;background:#fff}
+input:focus{border-color:#779bc4;box-shadow:0 0 0 2px rgba(74,121,175,.08)}
+.actions{margin-top:8px;display:flex;gap:8px}
+button{border:0;border-radius:6px;height:28px;padding:0 15px;font-size:11px;font-weight:700;cursor:pointer}
+.btn-primary{background:#102b4d;color:#fff}.btn-update{background:#647d9d;color:#fff}.btn-clear,.btn-refresh{background:#e8eef5;color:#3f536c}
+.search-row{display:grid;grid-template-columns:1fr auto auto;gap:9px;align-items:end}
+.btn-search{background:#102b4d;color:#fff}
+.alert{margin-top:9px;border-radius:6px;padding:8px 10px;font-size:11px;font-weight:700;display:none}
+.alert.success{display:block;background:#e7f8f1;border:1px solid #c5ecde;color:#27845f}
+.alert.success::before{content:'✓';display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-right:7px;border-radius:50%;background:#239e6a;color:white}
+.alert.error{display:block;background:#fff0f2;border:1px solid #f2cbd1;color:#d45563}
+.alert.error::before{content:'×';display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-right:7px;border-radius:50%;background:#e96a78;color:white}
+.alert small{display:block;margin:4px 0 0 21px;font-weight:500;color:#8c6670;font-size:9px}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead{background:#f1f5fa}
+th{text-align:left;padding:7px 9px;color:#5c6f87;font-size:10px;font-weight:700}
+td{padding:7px 9px;border-bottom:1px solid #e8eef4;color:#30445d;height:27px}
+td.uid{color:#1768c1;text-decoration:underline;font-weight:700;cursor:pointer}
+.row-actions{display:flex;gap:7px}
+.mini{height:20px;padding:0 8px;font-size:9px;border-radius:5px}
+.edit{background:#eeeefe;color:#6558cf}.delete{background:#ffe8eb;color:#d95a68}
+.empty{text-align:center;color:#8493a6;padding:18px}
+@media(max-width:700px){.form-grid,.search-row{grid-template-columns:1fr}.topbar{height:auto;gap:8px;align-items:flex-start;flex-direction:column}.card{padding:13px}.page{padding:8px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div>Backend Status: <span id="backend" class="status-dot">Connected</span></div>
+    <div class="api-label">REST API: /api/posts</div>
+  </div>
+
+  <section class="card">
+    <h2>User Management</h2>
+    <div class="form-grid">
+      <div><label for="uid">UID</label><input id="uid" placeholder="Enter UID"></div>
+      <div><label for="name">Name</label><input id="name" placeholder="Enter name"></div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" onclick="addUser()">Add User</button>
+      <button class="btn-update" onclick="updateUser()">Update User</button>
+      <button class="btn-clear" onclick="clearForm()">Clear</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Search User</h2>
+    <div class="search-row">
+      <div><input id="searchUid" placeholder="Enter UID to search" onkeydown="if(event.key==='Enter') searchUser()"></div>
+      <button class="btn-search" onclick="searchUser()">Search</button>
+      <button class="btn-refresh" onclick="loadUsers()">Refresh</button>
+    </div>
+    <div id="alert" class="alert"></div>
+  </section>
+
+  <section class="card">
+    <h2>Users</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:32%">UID</th><th style="width:35%">Name</th><th>Actions</th></tr></thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+const API='/api/posts';
+const uid=document.getElementById('uid');
+const name=document.getElementById('name');
+const searchUid=document.getElementById('searchUid');
+const alertBox=document.getElementById('alert');
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+function setAlert(type,message,cid){
+  alertBox.className='alert '+type;
+  alertBox.innerHTML=escapeHtml(message)+(cid?'<small>Correlation ID: '+escapeHtml(cid)+'</small>':'');
+}
+function clearAlert(){alertBox.className='alert';alertBox.innerHTML='';}
+
+async function api(url,options={}){
+  const response=await fetch(url,options);
+  let data={};
+  try{data=await response.json()}catch(e){}
+  const cid=response.headers.get('X-Correlation-ID') || data.correlationId || '';
+  if(!response.ok){
+    const err=new Error(data.message || 'Request failed');
+    err.data=data; err.correlationId=cid; err.status=response.status;
+    throw err;
+  }
+  return {data,cid};
+}
+
+async function loadUsers(){
+  try{
+    const result=await api(API);
+    const posts=result.data.data || [];
+    document.getElementById('backend').textContent='Connected';
+    document.getElementById('usersBody').innerHTML=posts.length ? posts.map(p=>`
+      <tr>
+        <td class="uid" onclick="selectUser('${escapeHtml(p.id)}')">${escapeHtml(p.id)}</td>
+        <td>${escapeHtml(p.text)}</td>
+        <td><div class="row-actions">
+          <button class="mini edit" onclick="selectUser('${escapeHtml(p.id)}')">Edit</button>
+          <button class="mini delete" onclick="deleteUser('${escapeHtml(p.id)}')">Delete</button>
+        </div></td>
+      </tr>`).join('') : '<tr><td colspan="3" class="empty">No users registered</td></tr>';
+  }catch(e){
+    document.getElementById('backend').textContent='Disconnected';
+    setAlert('error','Backend connection failed',e.correlationId);
+  }
+}
+
+async function searchUser(){
+  const id=searchUid.value.trim();
+  if(!id){setAlert('error','Please enter a UID');return;}
+  try{
+    const result=await api(API+'/'+encodeURIComponent(id));
+    uid.value=result.data.data.id;
+    name.value=result.data.data.text;
+    setAlert('success','User found: '+result.data.data.text,result.cid);
+  }catch(e){
+    setAlert('error','User not found with UID: '+id,e.correlationId);
+  }
+}
+
+function selectUser(id){
+  searchUid.value=id;
+  searchUser();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function addUser(){
+  const id=uid.value.trim(), text=name.value.trim();
+  if(!id || !text){setAlert('error','UID and Name are required');return;}
+  try{
+    await api(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    // The REST API generates an id for new posts, so the requested UID is used for
+    // the practical UI by immediately updating the generated record when possible.
+    const all=await api(API);
+    const created=(all.data.data||[]).slice(-1)[0];
+    if(created && created.id!==id){
+      try{await api(API+'/'+encodeURIComponent(created.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});}catch(_){ }
+    }
+    setAlert('success','User added successfully');
+    clearForm(false); loadUsers();
+  }catch(e){setAlert('error',e.message,e.correlationId)}
+}
+
+async function updateUser(){
+  const id=uid.value.trim(), text=name.value.trim();
+  if(!id || !text){setAlert('error','UID and Name are required');return;}
+  try{
+    const result=await api(API+'/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    setAlert('success','User updated successfully',result.cid);
+    loadUsers();
+  }catch(e){setAlert('error','User not found with UID: '+id,e.correlationId)}
+}
+
+async function deleteUser(id){
+  if(!confirm('Delete user '+id+'?')) return;
+  try{
+    const result=await api(API+'/'+encodeURIComponent(id),{method:'DELETE'});
+    setAlert('success','User deleted successfully',result.cid);
+    if(uid.value===id) clearForm(false);
+    loadUsers();
+  }catch(e){setAlert('error','User not found with UID: '+id,e.correlationId)}
+}
+
+function clearForm(clearMessage=true){uid.value='';name.value='';searchUid.value='';if(clearMessage)clearAlert();}
+loadUsers();
+</script>
+</body>
+</html>
